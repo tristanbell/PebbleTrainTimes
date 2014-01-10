@@ -1,0 +1,23 @@
+{
+    "versionLabel": "1.0",
+    "uuid": "247e0995-78ff-4b60-be3e-168c47ed269d",
+    "appKeys": {
+        "platform": 3,
+        "destination": 1,
+        "from_station": 0,
+        "expected_departure": 2
+    },
+    "longName": "Train Times",
+    "versionCode": 1,
+    "capabilities": [
+        "location"
+    ],
+    "shortName": "Train Times",
+    "companyName": "tristanbell",
+    "watchapp": {
+        "watchface": false
+    },
+    "resources": {
+        "media": []
+    }
+}
