@@ -1,19 +1,22 @@
 var api_key = '55c9e53cb6ab119eb1b02218671c2bda';
 var app_id = 'f933bbb6';
+var station_distance = 0;
 var my_station;
 var my_station_full;
 
 var departures_found = false;
 
 var messageQueue = [];
-var appMessageTimeout = 100;
+var appMessageTimeout = 50;
 var maxAppMessageTries = 3;
 var appMessageRetryTimeout = 500;
+var num_departures = 25; // This must be kept synchronized with quick_journey.c
 
 /* Left with everything in order. Still to do:
  *		- Give option to choose station
  *		- Give option to pre-configure destination
  *		- Store recent stations
+ *		- Finish icons
  */
 					
 function sendAppMessages() {
@@ -56,7 +59,9 @@ function httpRequest() {
 	
 	var request = new XMLHttpRequest();
 	var url = 'http://transportapi.com/v3/uk/train/station/' + my_station + '/live.json';
-	request.open('GET', url + "?api_key=" + api_key + "&app_id=" + app_id, true);
+	url = url + "?api_key=" + api_key + "&app_id=" + app_id + "&limit=" + num_departures;
+	console.log("URL: " + url);
+	request.open('GET', url, true);
 	
 	request.onload = function(e) {
 		if (request.readyState == 4 && request.status == 200) {
@@ -70,11 +75,12 @@ function httpRequest() {
 					var departure_time = result[i].expected_departure_time;
 					console.log(station_name + ', ' + platform + ', ' + departure_time);
 
-					messageQueue.push({"from_station": my_station_full, "destination": station_name, "expected_departure": departure_time });
 					if (platform) {
-						messageQueue[0].platform = platform;
-					}
-				}
+						messageQueue.push({"from_station": my_station_full, "destination": station_name, "expected_departure": departure_time, "platform": platform });
+ 					} else {
+						messageQueue.push({"from_station": my_station_full, "destination": station_name, "expected_departure": departure_time });
+ 					}
+			    }
 				
 				departures_found = true;
 			} else {
@@ -95,7 +101,7 @@ function findNearbyStations(lat, lon) {
 	console.log("Finding nearby stations...");
 	var request = new XMLHttpRequest();
 	var url = 'http://transportapi.com/v3/uk/train/stations/near.json';
-	var rpp = 5;
+	var rpp = 10;
 	request.open('GET', url + "?lat=" + lat + "&lon=" + lon + "&page=1" + "&rpp=" + rpp + "&api_key=" + api_key + "&app_id=" + app_id, true);
 	
 	request.onload = function(e) {
@@ -104,8 +110,8 @@ function findNearbyStations(lat, lon) {
 			
 			if (response && response.stations && response.stations.length > 0) {
 				var result = response.stations;
-				my_station = result[0].station_code;
-				my_station_full = result[0].name;
+				my_station = result[station_distance].station_code;
+				my_station_full = result[station_distance].name;
 				console.log("Nearest station: " + my_station);
 				httpRequest();
 			} else {
@@ -133,12 +139,20 @@ function locationError(err) {
 Pebble.addEventListener("ready",
   	function(e) {
     	console.log("JavaScript app ready and running!");
-		//window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
   	}
 );
+
+ebble.addEventListener("showConfiguration",
+  	function(e) {
+    	console.log("Configuring...");
+          Pebble.openURL("");
+  	}
+);
+
 
 Pebble.addEventListener("appmessage",
 	function(e) {
 		console.log("Received message: " + e.payload);
-		window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
+                   //Pebble.sendAppMessage({"from_station":"Test", "destination": "Test", "expected_departure":"12:00", "platform": 2 });
+ 		window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
 	});

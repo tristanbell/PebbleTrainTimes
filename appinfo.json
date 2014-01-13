@@ -10,7 +10,8 @@
     "longName": "Train Times",
     "versionCode": 1,
     "capabilities": [
-        "location"
+        "location",
+        "configurable"
     ],
     "shortName": "Train Times",
     "companyName": "tristanbell",
@@ -18,6 +19,32 @@
         "watchface": false
     },
     "resources": {
-        "media": []
+        "media": [
+            {
+                "type": "png",
+                "name": "PLATFORM_5",
+                "file": "images/five.png"
+            },
+            {
+                "type": "png",
+                "name": "PLATFORM_4",
+                "file": "images/four.png"
+            },
+            {
+                "type": "png",
+                "name": "PLATFORM_3",
+                "file": "images/three.png"
+            },
+            {
+                "type": "png",
+                "name": "PLATFORM_2",
+                "file": "images/two.png"
+            },
+            {
+                "type": "png",
+                "name": "PLATFORM_1",
+                "file": "images/one.png"
+            }
+        ]
     }
 }

@@ -54,8 +54,8 @@ DepartureList departure_list_create(size_t size)
 
 void departure_list_destroy(DepartureList list)
 {
-         departure_data_destroy(list.departures);
-         list.size = 0;
+	departure_data_destroy(list.departures);
+	list.size = 0;
 }
 
 DepartureDataList* departure_data_list_create(DepartureData data)
@@ -91,7 +91,7 @@ void departure_data_list_destroy(DepartureDataList* list)
 void departure_data_list_add(DepartureDataList** list, DepartureData data)
 {
 	if (!(*list)) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "New list created.");
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "New list created.");
 		*list = departure_data_list_create(data);
 		return;
 	}
@@ -127,14 +127,15 @@ void dep_print(DepartureDataList* departures)
 	}
 }
 
-// Still printing out crazy yen symbols...
-
 DepartureData departure_data_list_get(DepartureDataList* departures, int index)
 {
-	dep_print(departures);
+	//dep_print(departures);
 	
 	if (!departures) {
 		DepartureData empty;
+		empty.destination[0] = '\0';
+		empty.expected_departure[0] = '\0';
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Error: no departures to get.");
 		return empty;
 		// Throw exception instead
 	}

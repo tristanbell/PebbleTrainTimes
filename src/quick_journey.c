@@ -7,7 +7,7 @@
 #define NUM_MENU_SECTIONS 1
 
 //static uint16_t num_menu_items = 0;
-#define num_departures 25// Default value
+#define NUM_DEPARTURES 25// Default value
 
 enum {
   DEPARTURE_KEY_FROM = 0x0,
@@ -22,10 +22,12 @@ static struct QuickUI {
      MenuLayer *menu_layer;
 } ui;
 
-//static DepartureDataList* departures;
-static DepartureData departures[num_departures];
+static DepartureDataList* departures;
+//static DepartureData departures[NUM_DEPARTURES];
 static int current_dep = 0;
 char station[35];
+
+GBitmap *one_bmp, *two_bmp, *three_bmp, *four_bmp, *five_bmp;
 
 static int16_t menu_get_header_height_callback(MenuLayer *menu_layer, uint16_t section_index, void *callback_context) {
 	return MENU_CELL_BASIC_HEADER_HEIGHT;
@@ -44,9 +46,9 @@ static uint16_t menu_get_num_sections_callback(MenuLayer *menu_layer, void *data
 static uint16_t menu_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index, void *data) {
   switch (section_index) {
     case 0:
-   //   return departure_data_list_get_size(departures);
+        return departure_data_list_get_size(departures);
         //return departures.size;
-        return current_dep;
+        //return current_dep;
 
     default:
       return 0;
@@ -78,15 +80,31 @@ void animate_layer(Layer *layer, GRect *start, GRect *finish, int duration, int 
 
 static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
   if (cell_index->section == 0) {
-    //  DepartureData data = departure_list_get(departures, cell_index->row);
-       DepartureData data = departures[cell_index->row];
+      DepartureData data = departure_data_list_get(departures, cell_index->row);
+      //DepartureData data = departures[cell_index->row];
 	  if (!data.destination) return;
-      menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, NULL);
 	  
-	  /*GRect start = layer_get_bounds(cell_layer);
-	  GRect finish = start;
-	  finish.origin.x = start.origin.x - start.size.w;
-	  animate_layer(cell_layer, &start, &finish, 2000, 500);*/
+	  switch (data.platform) {
+		  case 1:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, one_bmp);
+		  	break;
+		  case 2:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, two_bmp);
+		  	break;
+		  case 3:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, three_bmp);
+		  	break;
+		  case 4:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, four_bmp);
+		  	break;
+		  case 5:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, five_bmp);
+		  	break;
+		  
+		  default:
+		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, NULL);
+		  	break;
+	  }
   }
 }
 
@@ -128,6 +146,8 @@ static void in_received_handler(DictionaryIterator *received, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "received.");
 	
+	if (current_dep >= NUM_DEPARTURES) return;
+	
 	Tuple *from = dict_find(received, DEPARTURE_KEY_FROM);
   	Tuple *dest = dict_find(received, DEPARTURE_KEY_DESTINATION);
 	Tuple *exp_departure = dict_find(received, DEPARTURE_KEY_EXP_DEPARTURE);
@@ -147,16 +167,16 @@ static void in_received_handler(DictionaryIterator *received, void *context)
     	strcpy(data.expected_departure, exp_departure->value->cstring);
     }
 	if (platform) {
-    	data.platform= platform->value->int8;
+    	data.platform= atoi(platform->value->cstring);
     }
 	
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Destination received: %s", data.destination);
 	
-	//departure_data_list_add(&departures, data);
-      //  departure_list_add(&departures, data);
-        departures[current_dep++] = data;
+	departure_data_list_add(&departures, data);
+    //  departure_list_add(&departures, data);
+	//departures[current_dep++] = data;
 	
-         menu_layer_reload_data(ui.menu_layer);
+    menu_layer_reload_data(ui.menu_layer);
 	layer_mark_dirty(menu_layer_get_layer(ui.menu_layer));
 }
 
@@ -186,6 +206,12 @@ static void window_load(Window *window)
      //   departures = departure_list_create(num_departures);
 	Layer *window_layer = window_get_root_layer(window);
  	GRect bounds = layer_get_frame(window_layer);
+	
+	one_bmp = gbitmap_create_with_resource(RESOURCE_ID_PLATFORM_1);
+	two_bmp = gbitmap_create_with_resource(RESOURCE_ID_PLATFORM_2);
+	three_bmp = gbitmap_create_with_resource(RESOURCE_ID_PLATFORM_3);
+	four_bmp = gbitmap_create_with_resource(RESOURCE_ID_PLATFORM_4);
+	five_bmp = gbitmap_create_with_resource(RESOURCE_ID_PLATFORM_5);
 	
 	ui.menu_layer = menu_layer_create(bounds);
 	
