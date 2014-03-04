@@ -1,3 +1,6 @@
+#ifndef DEPARTURE_DATA_H_
+#define DEPARTURE_DATA_H_
+
 typedef struct {
 	char destination[160];
 	// string for calling at a favorite station?
@@ -28,3 +31,5 @@ void departure_list_add(DepartureList* list, DepartureData data);
 DepartureData departure_list_get(DepartureList list, int index);
 DepartureData* departure_data_create(const int size);
 void departure_data_destroy(DepartureData* dep);
+
+#endif

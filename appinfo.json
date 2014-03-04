@@ -2,16 +2,19 @@
     "versionLabel": "1.0",
     "uuid": "247e0995-78ff-4b60-be3e-168c47ed269d",
     "appKeys": {
-        "platform": 3,
         "destination": 1,
+        "departures_fetch": 4,
+        "expected_departure": 2,
+        "platform": 3,
+        "station_distance": 7,
+        "station": 6,
         "from_station": 0,
-        "expected_departure": 2
+        "get_stations_fetch": 5
     },
     "longName": "Train Times",
     "versionCode": 1,
     "capabilities": [
-        "location",
-        "configurable"
+        "location"
     ],
     "shortName": "Train Times",
     "companyName": "tristanbell",
@@ -20,6 +23,12 @@
     },
     "resources": {
         "media": [
+            {
+                "menuIcon": true,
+                "type": "png",
+                "name": "MENU_IMAGE",
+                "file": "images/trains_menu.png"
+            },
             {
                 "type": "png",
                 "name": "PLATFORM_5",

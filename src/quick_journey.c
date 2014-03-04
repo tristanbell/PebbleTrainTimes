@@ -3,23 +3,18 @@
 #include <pebble.h>
 #include "quick_journey.h"
 #include "departure_data.h"
+#include "keys.h"
 	
 #define NUM_MENU_SECTIONS 1
 
 //static uint16_t num_menu_items = 0;
-#define NUM_DEPARTURES 25// Default value
+#define NUM_DEPARTURES 25
 
-enum {
-  DEPARTURE_KEY_FROM = 0x0,
-  DEPARTURE_KEY_DESTINATION = 0x1,
-  DEPARTURE_KEY_EXP_DEPARTURE = 0x2,
-  DEPARTURE_KEY_PLATFORM = 0x3,
-  DEPARTURE_KEY_FETCH = 0x4,	
-};
-
-static struct QuickUI {
-     Window *qj_window;
-     MenuLayer *menu_layer;
+static struct {
+    Window *qj_window;
+    MenuLayer *menu_layer;
+	TextLayer *text_layer;
+	bool initialized;
 } ui;
 
 static DepartureDataList* departures;
@@ -27,6 +22,7 @@ static DepartureDataList* departures;
 static int current_dep = 0;
 char station[35];
 
+//TODO: make this an array so double digit numbers can be created by index 
 GBitmap *one_bmp, *two_bmp, *three_bmp, *four_bmp, *five_bmp;
 
 static int16_t menu_get_header_height_callback(MenuLayer *menu_layer, uint16_t section_index, void *callback_context) {
@@ -47,62 +43,38 @@ static uint16_t menu_get_num_rows_callback(MenuLayer *menu_layer, uint16_t secti
   switch (section_index) {
     case 0:
         return departure_data_list_get_size(departures);
-        //return departures.size;
-        //return current_dep;
-
     default:
       return 0;
   }
 }
 
-void on_animation_stopped(Animation *anim, bool finished, void *context) {
-	// Free animation memory
-	property_animation_destroy((PropertyAnimation*) anim);
-}
-
-void animate_layer(Layer *layer, GRect *start, GRect *finish, int duration, int delay) {
-	// Declare animation
-	PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
-	
-	// Set characteristics
-	animation_set_duration((Animation*) anim, duration);
-	animation_set_delay((Animation*) anim, delay);
-	
-	// Set stopped handler
-	AnimationHandlers handlers = {
-		.stopped = (AnimationStoppedHandler) on_animation_stopped
-	};
-	animation_set_handlers((Animation*) anim, handlers, NULL);
-	
-	// Start animation
-	animation_schedule((Animation*) anim);
-}
-
 static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
   if (cell_index->section == 0) {
-      DepartureData data = departure_data_list_get(departures, cell_index->row);
-      //DepartureData data = departures[cell_index->row];
-	  if (!data.destination) return;
+      DepartureData dep_data = departure_data_list_get(departures, cell_index->row);
+
+	  if (!dep_data.destination) return;
 	  
-	  switch (data.platform) {
+	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "Dest: %s, Dep: %s", dep_data.destination, dep_data.expected_departure);
+	  
+	  switch (dep_data.platform) {
 		  case 1:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, one_bmp);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, one_bmp);
 		  	break;
 		  case 2:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, two_bmp);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, two_bmp);
 		  	break;
 		  case 3:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, three_bmp);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, three_bmp);
 		  	break;
 		  case 4:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, four_bmp);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, four_bmp);
 		  	break;
 		  case 5:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, five_bmp);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, five_bmp);
 		  	break;
 		  
 		  default:
-		  	menu_cell_basic_draw(ctx, cell_layer, data.destination, data.expected_departure, NULL);
+		  	menu_cell_basic_draw(ctx, cell_layer, dep_data.destination, dep_data.expected_departure, NULL);
 		  	break;
 	  }
   }
@@ -110,43 +82,68 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
 
 static void fetch_msg(void) {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "fetching first message...");
+	text_layer_set_text(ui.text_layer, "Loading...");
 	
-  Tuplet fetch_tuple = TupletInteger(DEPARTURE_KEY_FETCH, 1);
-  Tuplet from_tuple = TupletCString(DEPARTURE_KEY_FROM, "hi");
+  	Tuplet fetch_tuple = TupletInteger(DEPARTURE_KEY_FETCH, 1);
 
-  DictionaryIterator *iter;
-  app_message_outbox_begin(&iter);
+  	DictionaryIterator *iter;
+  	AppMessageResult result = app_message_outbox_begin(&iter);
 
-  if (iter == NULL) {
-    return;
-  }
+	if (iter == NULL) {		
+		if (result == APP_MSG_INVALID_ARGS)
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "App message invalid args");
+		if (result == APP_MSG_BUSY)
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "App message busy");
+		if (result == APP_MSG_NOT_CONNECTED)
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "App message not connected");
+		if (result == APP_MSG_CALLBACK_NOT_REGISTERED)
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "App message callback not registered");
+    	return;
+    }
 
-  dict_write_tuplet(iter, &fetch_tuple);
-  dict_write_tuplet(iter, &from_tuple);
-  dict_write_end(iter);
+  	dict_write_tuplet(iter, &fetch_tuple);
+  	dict_write_end(iter);
 
-  app_message_outbox_send();
+  	app_message_outbox_send();
 }
 	
 static void out_sent_handler(DictionaryIterator *sent, void *context)
 {
-   // outgoing message was delivered
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "sent.");
- }
+	/*
+	Tuple *tuple = dict_read_first(sent);
+	while (tuple) {
+  		APP_LOG(APP_LOG_LEVEL_DEBUG, "\t%d\n", (int) (tuple->key));
+  	    
+		tuple = dict_read_next(sent);
+    }
+	*/
+}
 
 
 static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context)
 {
-  // outgoing message failed
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "sending failed.");
+	
+	text_layer_set_text(ui.text_layer, "Error: initialization failed.");
+	layer_set_hidden(text_layer_get_layer(ui.text_layer), false);
 }
 
 
 static void in_received_handler(DictionaryIterator *received, void *context)
-{
+{	
+	// Perhaps move this bit?
+	if (!ui.initialized) {
+		ui.initialized = true;
+		layer_set_hidden(text_layer_get_layer(ui.text_layer), true);
+	}
+	
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "received.");
 	
-	if (current_dep >= NUM_DEPARTURES) return;
+	if (current_dep++ >= NUM_DEPARTURES) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Departure limit reached.");
+		return;
+	}
 	
 	Tuple *from = dict_find(received, DEPARTURE_KEY_FROM);
   	Tuple *dest = dict_find(received, DEPARTURE_KEY_DESTINATION);
@@ -155,35 +152,40 @@ static void in_received_handler(DictionaryIterator *received, void *context)
 
 	DepartureData data;
 
-  	if (from && !station[0]) {
-    //	strcpy(data.from, from->value->cstring);
-		strncpy(station, from->value->cstring, sizeof(station));
+  	if (from) {
+		char *from_station = from->value->cstring;
+		if (!station[0] || strcmp(station, from_station) != 0) {
+    //		strcpy(data.from, from->value->cstring);
+			strncpy(station, from_station, sizeof(station));
+		}
 	}
-
 	if (dest) {
-    	strcpy(data.destination, dest->value->cstring);
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "\tDest: %s", dest->value->cstring);
+    	strncpy(data.destination, dest->value->cstring, sizeof(data.destination));
     }
 	if (exp_departure) {
-    	strcpy(data.expected_departure, exp_departure->value->cstring);
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "\tDeparture: %s", exp_departure->value->cstring);
+    	strncpy(data.expected_departure, exp_departure->value->cstring, sizeof(data.expected_departure));
     }
 	if (platform) {
-    	data.platform= atoi(platform->value->cstring);
+    	data.platform = atoi(platform->value->cstring);
     }
 	
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Destination received: %s", data.destination);
+	if (dest && exp_departure) {
+		departure_data_list_add(&departures, data);
+		//departure_list_add(&departures, data);
+		//departures[current_dep++] = data;
 	
-	departure_data_list_add(&departures, data);
-    //  departure_list_add(&departures, data);
-	//departures[current_dep++] = data;
-	
-    menu_layer_reload_data(ui.menu_layer);
-	layer_mark_dirty(menu_layer_get_layer(ui.menu_layer));
+		menu_layer_reload_data(ui.menu_layer);
+		layer_mark_dirty(menu_layer_get_layer(ui.menu_layer));
+	} else {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Message not recognised.");
+	}
 }
 
 
 static void in_dropped_handler(AppMessageResult reason, void *context)
 {
-  // incoming message dropped
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "incoming message dropped.");
 }
 
@@ -193,16 +195,14 @@ static void app_message_init(void)
    	app_message_register_inbox_dropped(in_dropped_handler);
    	app_message_register_outbox_sent(out_sent_handler);
   	app_message_register_outbox_failed(out_failed_handler);
-
-   	const uint32_t inbound_size = 256;
-   	const uint32_t outbound_size = 64;
-   	app_message_open(inbound_size, outbound_size);
 	
 	fetch_msg();
 }
 
 static void window_load(Window *window)
 {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "WINDOW LOAD!");
+	
      //   departures = departure_list_create(num_departures);
 	Layer *window_layer = window_get_root_layer(window);
  	GRect bounds = layer_get_frame(window_layer);
@@ -222,18 +222,38 @@ static void window_load(Window *window)
 		.get_header_height = menu_get_header_height_callback,
     	.draw_row = menu_draw_row_callback
     });
-  menu_layer_set_click_config_onto_window(ui.menu_layer, window);
+	menu_layer_set_click_config_onto_window(ui.menu_layer, window);
+	
+	ui.text_layer = text_layer_create(bounds);
+	text_layer_set_background_color(ui.text_layer, GColorBlack);
+	text_layer_set_text_color(ui.text_layer, GColorWhite);
+	text_layer_set_font(ui.text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_text_alignment(ui.text_layer, GTextAlignmentCenter);
 
 	layer_add_child(window_layer, menu_layer_get_layer(ui.menu_layer));
+	layer_add_child(window_layer, text_layer_get_layer(ui.text_layer));
 	
     app_message_init();
 }
 
 static void window_unload(Window *window)
 {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "WINDOW UNLOAD!");
+	
 	menu_layer_destroy(ui.menu_layer);
- //   departure_data_list_destroy(departures);
- //       departure_list_destroy(departures);
+    departure_data_list_destroy(departures);
+	departures = NULL;
+	text_layer_destroy(ui.text_layer);
+	ui.initialized = false;
+	current_dep = 0;
+	
+	gbitmap_destroy(one_bmp);
+	gbitmap_destroy(two_bmp);
+	gbitmap_destroy(three_bmp);
+	gbitmap_destroy(four_bmp);
+	gbitmap_destroy(five_bmp);
+	
+	app_message_deregister_callbacks();
 }
 
 void quick_journey_init(void)

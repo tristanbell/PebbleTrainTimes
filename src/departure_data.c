@@ -61,6 +61,9 @@ void departure_list_destroy(DepartureList list)
 DepartureDataList* departure_data_list_create(DepartureData data)
 {
 	DepartureDataList *list = malloc(sizeof(DepartureDataList));
+	if (!list) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Memory allocation for data list failed!");
+	}
 	list->data = data;
 	list->next = NULL;
 	return list;
@@ -86,6 +89,8 @@ void departure_data_list_destroy(DepartureDataList* list)
 		free(toDelete);
 		toDelete = temp;
 	}
+	
+	free(list);
 }
 
 void departure_data_list_add(DepartureDataList** list, DepartureData data)
@@ -137,7 +142,7 @@ DepartureData departure_data_list_get(DepartureDataList* departures, int index)
 		empty.expected_departure[0] = '\0';
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Error: no departures to get.");
 		return empty;
-		// Throw exception instead
+		// Throw exception instead? If those exist in C?
 	}
 
     DepartureDataList* temp = departures;

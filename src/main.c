@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include "quick_journey.h"
+#include "choose_station.h"
 	
 #define NUM_MENU_ITEMS 2
 #define NUM_SECTIONS 1
@@ -15,6 +16,8 @@ void menu_select_callback(int index, void *ctx)
 {
 	if (index == 0)
 		quick_journey_show();
+	else if (index == 1)
+		choose_station_show();
 }
 
 void title_layer_init(Layer *root_layer, GRect bounds)
@@ -39,7 +42,7 @@ void menu_init(Layer *root_layer, GRect bounds)
 		.callback = menu_select_callback
 	};
 	menu_items[item_index++] = (SimpleMenuItem) {
-		.title = "Select Stations",
+		.title = "Select Station",
 		.callback = menu_select_callback
 	};
 	
@@ -66,9 +69,18 @@ void window_unload(Window *window)
 	simple_menu_layer_destroy(menu);
 }
 
+void app_message_init()
+{
+   	const uint32_t inbound_size = app_message_inbox_size_maximum();
+   	const uint32_t outbound_size = app_message_outbox_size_maximum();
+   	app_message_open(inbound_size, outbound_size);
+}
+
 void handle_init(void)
 {
 	quick_journey_init();
+	choose_station_init();
+	app_message_init();
 	my_window = window_create();
 	window_set_window_handlers(my_window, (WindowHandlers) {
 		.load = window_load,
@@ -82,6 +94,7 @@ void handle_deinit(void)
 {
 	window_destroy(my_window);
 	quick_journey_deinit();
+	choose_station_deinit();
 }
 
 int main(void)
