@@ -83,13 +83,12 @@ static void out_sent_handler(DictionaryIterator *sent, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "sent.");
 	
-	Tuple *tuple = dict_read_first(sent);
-	if (tuple->key == GET_STATIONS_KEY_SET_DISTANCE) {
+	Tuple *tuple = dict_find(sent, GET_STATIONS_KEY_SET_DISTANCE);
+	if (tuple) {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Showing departures...");
 		quick_journey_show();
 	}
- }
-
+}
 
 static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context)
 {
@@ -155,6 +154,10 @@ static void window_load(Window *window)
 	menu_layer_set_click_config_onto_window(ui.menu_layer, window);
 	
 	ui.text_layer = text_layer_create(bounds);
+	text_layer_set_background_color(ui.text_layer, GColorBlack);
+	text_layer_set_text_color(ui.text_layer, GColorWhite);
+	text_layer_set_font(ui.text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_text_alignment(ui.text_layer, GTextAlignmentCenter);
 
 	layer_add_child(window_layer, menu_layer_get_layer(ui.menu_layer));
 	layer_add_child(window_layer, text_layer_get_layer(ui.text_layer));

@@ -4,6 +4,7 @@
 #include "quick_journey.h"
 #include "departure_data.h"
 #include "keys.h"
+#include "loading_layer.h"
 	
 #define NUM_MENU_SECTIONS 1
 
@@ -13,7 +14,7 @@
 static struct {
     Window *qj_window;
     MenuLayer *menu_layer;
-	TextLayer *text_layer;
+	LoadingLayer *loading_layer;
 	bool initialized;
 } ui;
 
@@ -82,7 +83,7 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
 
 static void fetch_msg(void) {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "fetching first message...");
-	text_layer_set_text(ui.text_layer, "Loading...");
+	loading_layer_set_text(ui.loading_layer, "Loading");
 	
   	Tuplet fetch_tuple = TupletInteger(DEPARTURE_KEY_FETCH, 1);
 
@@ -125,8 +126,8 @@ static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reas
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "sending failed.");
 	
-	text_layer_set_text(ui.text_layer, "Error: initialization failed.");
-	layer_set_hidden(text_layer_get_layer(ui.text_layer), false);
+	loading_layer_set_text(ui.loading_layer, "Error: initialization failed.");
+	loading_layer_set_hidden(ui.loading_layer, false);
 }
 
 
@@ -135,7 +136,7 @@ static void in_received_handler(DictionaryIterator *received, void *context)
 	// Perhaps move this bit?
 	if (!ui.initialized) {
 		ui.initialized = true;
-		layer_set_hidden(text_layer_get_layer(ui.text_layer), true);
+		loading_layer_set_hidden(ui.loading_layer, true);
 	}
 	
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "received.");
@@ -183,10 +184,15 @@ static void in_received_handler(DictionaryIterator *received, void *context)
 	}
 }
 
-
 static void in_dropped_handler(AppMessageResult reason, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "incoming message dropped.");
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+	if (ui.initialized) return;
+	
+	loading_layer_tick_handler(ui.loading_layer, tick_time, units_changed);
 }
 
 static void app_message_init(void)
@@ -198,6 +204,8 @@ static void app_message_init(void)
 	
 	fetch_msg();
 }
+
+// TODO: set a tick handler for loading progress
 
 static void window_load(Window *window)
 {
@@ -224,16 +232,14 @@ static void window_load(Window *window)
     });
 	menu_layer_set_click_config_onto_window(ui.menu_layer, window);
 	
-	ui.text_layer = text_layer_create(bounds);
-	text_layer_set_background_color(ui.text_layer, GColorBlack);
-	text_layer_set_text_color(ui.text_layer, GColorWhite);
-	text_layer_set_font(ui.text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-	text_layer_set_text_alignment(ui.text_layer, GTextAlignmentCenter);
+	ui.loading_layer = loading_layer_create(bounds);
 
 	layer_add_child(window_layer, menu_layer_get_layer(ui.menu_layer));
-	layer_add_child(window_layer, text_layer_get_layer(ui.text_layer));
+	layer_add_child(window_layer, text_layer_get_layer(ui.loading_layer->text_layer));
 	
     app_message_init();
+	
+	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
 }
 
 static void window_unload(Window *window)
@@ -243,7 +249,7 @@ static void window_unload(Window *window)
 	menu_layer_destroy(ui.menu_layer);
     departure_data_list_destroy(departures);
 	departures = NULL;
-	text_layer_destroy(ui.text_layer);
+	loading_layer_destroy(ui.loading_layer);
 	ui.initialized = false;
 	current_dep = 0;
 	
@@ -254,6 +260,7 @@ static void window_unload(Window *window)
 	gbitmap_destroy(five_bmp);
 	
 	app_message_deregister_callbacks();
+	tick_timer_service_unsubscribe();
 }
 
 void quick_journey_init(void)
